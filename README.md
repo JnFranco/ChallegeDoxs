@@ -336,10 +336,11 @@ docker compose down -v
 
 ### Tareas externas opcionales completadas
 
-De las tareas opcionales del challenge, este proyecto implementa 2:
+De las tareas externas del challenge, este proyecto implementa 2:
 
-1. **Fortalecer la entrega de eventos**: Outbox transaccional, consumidores idempotentes, reintentos con backoff exponencial y dead-letter queue (estado `dlq` en PostgreSQL).
-2. **Señales operacionales**: Health check endpoint (`/health`) y logs estructurados con `logging` en todos los componentes críticos (consumer, publisher, producer).
+1. **Alto volumen de lecturas y escrituras simultáneas**: Se demuestra mediante `SELECT ... FOR UPDATE SKIP LOCKED` en el Outbox Publisher, que permite múltiples instancias procesar eventos en paralelo sin bloquearse. Los tests verifican este comportamiento.
+
+2. **Fortalecer la entrega de eventos**: Outbox transaccional (Transaction + OutboxEvent en un solo COMMIT), consumidores idempotentes (el consumer de `fraud.decisions` ignora duplicados verificando estado final), reintentos con backoff exponencial (2^attempts segundos) y dead-letter queue (estado `dlq` en PostgreSQL tras 3 intentos fallidos).
 
 ### Limitaciones conocidas
 

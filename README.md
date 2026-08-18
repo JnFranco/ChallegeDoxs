@@ -334,6 +334,13 @@ docker compose down -v
 
 **¿Por qué no GraphQL?** El challenge pide una REST API. GraphQL agregaría complejidad innecesaria sin un caso de uso claro que lo justifique.
 
+### Tareas externas opcionales completadas
+
+De las tareas opcionales del challenge, este proyecto implementa 2:
+
+1. **Fortalecer la entrega de eventos**: Outbox transaccional, consumidores idempotentes, reintentos con backoff exponencial y dead-letter queue (estado `dlq` en PostgreSQL).
+2. **Señales operacionales**: Health check endpoint (`/health`) y logs estructurados con `logging` en todos los componentes críticos (consumer, publisher, producer).
+
 ### Limitaciones conocidas
 
 - El Outbox Publisher corre como un hilo dentro de transaction-service. En un entorno real se deployaría como un servicio separado.

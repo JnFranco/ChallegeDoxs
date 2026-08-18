@@ -20,7 +20,11 @@ from app.schemas import (
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Transaction Service")
+app = FastAPI(
+    title="Transaction Service",
+    description="Servicio de procesamiento de transacciones. Crear transacciones, consultar su estado y verificar la regla antifraude.",
+    version="1.0.0",
+)
 
 
 @app.on_event("startup")
@@ -36,7 +40,19 @@ def shutdown():
     stop_consumer()
 
 
-@app.post("/transactions", status_code=201, response_model=TransactionCreatedResponse)
+@app.post(
+    "/transactions",
+    status_code=201,
+    response_model=TransactionCreatedResponse,
+    summary="Crear una transacción",
+    description=(
+        "Crea una nueva transacción con estado pending. "
+        "Se valida que las cuentas sean distintas, que transferTypeId exista "
+        "y que value sea mayor que 0. La transacción y un evento Outbox "
+        "se guardan en PostgreSQL en un solo COMMIT."
+    ),
+    tags=["Transacciones"],
+)
 def create_transaction(body: TransactionCreate, db: Session = Depends(get_db)):
     # Las cuentas débito y crédito deben ser distintas.
     if body.accountExternalIdDebit == body.accountExternalIdCredit:
@@ -92,7 +108,21 @@ def create_transaction(body: TransactionCreate, db: Session = Depends(get_db)):
     )
 
 
-@app.get("/transactions/{transaction_external_id}", response_model=TransactionResponse)
+@app.get(
+    "/transactions/{transaction_external_id}",
+    response_model=TransactionResponse,
+    summary="Consultar una transacción",
+    description=(
+        "Devuelve la transacción por su identificador externo (UUID). "
+        "Incluye tipo, estado actual, valor y fecha de creación. "
+        "Si la transacción recién se creó, el estado es pending. "
+        "Después de que el Anti-Fraud la evalúe, pasa a approved o rejected."
+    ),
+    tags=["Transacciones"],
+    responses={
+        404: {"description": "Transacción no encontrada"},
+    },
+)
 def get_transaction(transaction_external_id: UUID, db: Session = Depends(get_db)):
     transaction = (
         db.query(Transaction)
@@ -111,6 +141,11 @@ def get_transaction(transaction_external_id: UUID, db: Session = Depends(get_db)
     )
 
 
-@app.get("/health")
+@app.get(
+    "/health",
+    summary="Health check",
+    description="Verifica que el servicio esté funcionando.",
+    tags=["Sistema"],
+)
 def health():
     return {"status": "ok"}

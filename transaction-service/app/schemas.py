@@ -80,7 +80,7 @@ class TransactionStatusOut(BaseModel):
 
 class TransactionCreatedResponse(BaseModel):
     transactionExternalId: UUID = Field(
-        description="UUID único de la transacción creada. Copialo y usalo en GET /transactions/{id} para consultar el estado.",
+        description="UUID único de la transacción créada. Cópielo y úselo en GET /transactions/{id} para consultar el estado.",
         json_schema_extra={
             "title": "ID de la Transacción",
         },

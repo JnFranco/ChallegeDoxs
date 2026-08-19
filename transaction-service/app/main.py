@@ -38,12 +38,12 @@ Este servicio permite crear transacciones financieras y consultar su estado.
 - Monto **> 1000** → rechazada (`rejected`)
 
 ### Cómo usar esta API
-1. Hacé click en **POST /transactions** y luego en **Try it out**
-2. Completá los campos (usá los UUIDs de ejemplo que aparecen)
-3. Hacé click en **Execute** — vas a recibir un `transactionExternalId`
-4. Copiá ese ID y pegalo en **GET /transactions/{transaction_external_id}**
-5. Hacé click en **Execute** — vas a ver la transacción con estado `pending`
-6. Esperá **5-10 segundos** y ejecutá **GET** de nuevo — el estado cambió a `approved` o `rejected`
+1. De click en **POST /transactions** y luego en **Try it out**
+2. Complete los campos (use los UUIDs de ejemplo que aparecen)
+3. De click en **Execute** — recibirá un `transactionExternalId`
+4. Copie ese ID y colóquelo en **GET /transactions/{transaction_external_id}**
+5. De click en **Execute** — verá la transacción con estado `pending`
+6. Espere **5-10 segundos** y ejecute **GET** de nuevo — el estado cambió a `approved` o `rejected`
 
 ### Notas importantes
 - La evaluación de fraude es **asíncrona**. Recién creada, la transacción tiene estado `pending`
@@ -52,7 +52,7 @@ Este servicio permite crear transacciones financieras y consultar su estado.
 
 ### Cómo leer el Swagger UI
 - **Example Value** = es solo un ejemplo del formato de respuesta, NO es una transacción real
-- **Response body** (arriba) = es la respuesta **real** de la API cuando hacés "Try it out"
+- **Response body** (arriba) = es la respuesta **real** de la API cuando se hace "Try it out"
 - Solo importa el **Response body** que aparece después de hacer Execute
     """,
     version="1.0.0",
@@ -83,15 +83,15 @@ def shutdown():
         "Crea una nueva transacción con estado **pending**. "
         "Se valida que las cuentas sean distintas, que el tipo de transferencia exista "
         "y que el monto sea mayor que 0.\n\n"
-        "**Qué hacé:** Hacé click en \"Try it out\", completá los campos y dale \"Execute\".\n\n"
-        "**Qué recibís:** El UUID de la transacción creada. Copialo y usalo en GET para consultar el estado.\n\n"
+        "**Qué hacer:** De click en \"Try it out\", complete los campos y de click en \"Execute\".\n\n"
+        "**Respuesta:** El UUID de la transacción creada. Cópielo y úselo en GET para consultar el estado.\n\n"
         "**Después:** La transacción queda como `pending`. El servicio Anti-Fraud la evalúa "
         "asincrónicamente y la cambia a `approved` o `rejected`."
     ),
     tags=["Transacciones"],
     responses={
         201: {"description": "Transacción creada exitosamente. Devuelve el UUID de la transacción."},
-        422: {"description": "Datos inválidos. Verificá que las cuentas sean distintas, que el tipo de transferencia sea 1 y que el monto sea mayor a 0."},
+        422: {"description": "Datos inválidos. Verifique que las cuentas sean distintas, que el tipo de transferencia sea 1 y que el monto sea mayor a 0."},
     },
 )
 def create_transaction(body: TransactionCreate, db: Session = Depends(get_db)):
@@ -107,7 +107,7 @@ def create_transaction(body: TransactionCreate, db: Session = Depends(get_db)):
     if not transfer_type:
         raise HTTPException(
             status_code=422,
-            detail=f"El tipo de transferencia {body.transferTypeId} no existe. Usá 1 para transferencia estándar.",
+            detail=f"El tipo de transferencia {body.transferTypeId} no existe. Use 1 para transferencia estándar.",
         )
 
     tx_external_id = uuid4()
@@ -155,20 +155,20 @@ def create_transaction(body: TransactionCreate, db: Session = Depends(get_db)):
     summary="Consultar una transacción",
     description=(
         "Devuelve la transacción completa por su UUID.\n\n"
-        "**Qué hacé:** Pegá el `transactionExternalId` que recibiste al crear la transacción "
-        "y dale \"Execute\".\n\n"
-        "**Qué recibís:** Los datos de la transacción:\n"
+        "**Qué hacer:** Coloque el `transactionExternalId` que recibió al crear la transacción "
+        "y de click en \"Execute\".\n\n"
+        "**Respuesta:** Los datos de la transacción:\n"
         "- `transactionType.name` → tipo de transferencia\n"
         "- `transactionStatus.name` → estado actual: `pending`, `approved` o `rejected`\n"
         "- `value` → monto\n"
         "- `createdAt` → fecha de creación\n\n"
-        "**Importante:** Si recién creaste la transacción, el estado es `pending`. "
-        "Esperá 5-10 segundos y volvé a ejecutar para ver el resultado."
+        "**Importante:** Si recién creó la transacción, el estado es `pending`. "
+        "Espere 5-10 segundos y vuelva a ejecutar para ver el resultado."
     ),
     tags=["Transacciones"],
     responses={
         200: {"description": "Transacción encontrada. El estado puede ser pending, approved o rejected."},
-        404: {"description": "No existe una transacción con ese UUID. Verificá que el ID sea correcto."},
+        404: {"description": "No existe una transacción con ese UUID. Verifique que el ID sea correcto."},
     },
 )
 def get_transaction(transaction_external_id: UUID, db: Session = Depends(get_db)):

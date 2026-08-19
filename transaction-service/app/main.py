@@ -37,16 +37,23 @@ Este servicio permite crear transacciones financieras y consultar su estado.
 - Monto **<= 1000** → aprobada (`approved`)
 - Monto **> 1000** → rechazada (`rejected`)
 
-### Cómo usar
-1. Creá una transacción con **POST /transactions**
-2. Copiá el `transactionExternalId` de la respuesta
-3. Consultá el estado con **GET /transactions/{id}**
-4. Esperá unos segundos y consultá de nuevo para ver el resultado
+### Cómo usar esta API
+1. Hacé click en **POST /transactions** y luego en **Try it out**
+2. Completá los campos (usá los UUIDs de ejemplo que aparecen)
+3. Hacé click en **Execute** — vas a recibir un `transactionExternalId`
+4. Copiá ese ID y pegalo en **GET /transactions/{transaction_external_id}**
+5. Hacé click en **Execute** — vas a ver la transacción con estado `pending`
+6. Esperá **5-10 segundos** y ejecutá **GET** de nuevo — el estado cambió a `approved` o `rejected`
 
-### Notas
+### Notas importantes
 - La evaluación de fraude es **asíncrona**. Recién creada, la transacción tiene estado `pending`
 - Después de unos segundos, el estado cambia a `approved` o `rejected`
 - Si el monto es mayor a 1000, será rechazada
+
+### Cómo leer el Swagger UI
+- **Example Value** = es solo un ejemplo del formato de respuesta, NO es una transacción real
+- **Response body** (arriba) = es la respuesta **real** de la API cuando hacés "Try it out"
+- Solo importa el **Response body** que aparece después de hacer Execute
     """,
     version="1.0.0",
     docs_url="/docs",
@@ -76,13 +83,15 @@ def shutdown():
         "Crea una nueva transacción con estado **pending**. "
         "Se valida que las cuentas sean distintas, que el tipo de transferencia exista "
         "y que el monto sea mayor que 0.\n\n"
-        "La transacción y un evento Outbox "
-        "se guardan en PostgreSQL en un solo COMMIT."
+        "**Qué hacé:** Hacé click en \"Try it out\", completá los campos y dale \"Execute\".\n\n"
+        "**Qué recibís:** El UUID de la transacción creada. Copialo y usalo en GET para consultar el estado.\n\n"
+        "**Después:** La transacción queda como `pending`. El servicio Anti-Fraud la evalúa "
+        "asincrónicamente y la cambia a `approved` o `rejected`."
     ),
     tags=["Transacciones"],
     responses={
-        201: {"description": "Transacción creada exitosamente"},
-        422: {"description": "Datos inválidos (UUIDs iguales, monto <= 0, tipo de transferencia inexistente)"},
+        201: {"description": "Transacción creada exitosamente. Devuelve el UUID de la transacción."},
+        422: {"description": "Datos inválidos. Verificá que las cuentas sean distintas, que el tipo de transferencia sea 1 y que el monto sea mayor a 0."},
     },
 )
 def create_transaction(body: TransactionCreate, db: Session = Depends(get_db)):
@@ -145,19 +154,21 @@ def create_transaction(body: TransactionCreate, db: Session = Depends(get_db)):
     response_model=TransactionResponse,
     summary="Consultar una transacción",
     description=(
-        "Devuelve la transacción por su UUID.\n\n"
-        "Incluye:\n"
-        "- **transactionType**: tipo de transferencia\n"
-        "- **transactionStatus**: estado actual (`pending`, `approved` o `rejected`)\n"
-        "- **value**: monto\n"
-        "- **createdAt**: fecha de creación\n\n"
-        "Si la transacción recién se creó, el estado es `pending`. "
-        "Después de que Anti-Fraud la evalúe, pasa a `approved` o `rejected`."
+        "Devuelve la transacción completa por su UUID.\n\n"
+        "**Qué hacé:** Pegá el `transactionExternalId` que recibiste al crear la transacción "
+        "y dale \"Execute\".\n\n"
+        "**Qué recibís:** Los datos de la transacción:\n"
+        "- `transactionType.name` → tipo de transferencia\n"
+        "- `transactionStatus.name` → estado actual: `pending`, `approved` o `rejected`\n"
+        "- `value` → monto\n"
+        "- `createdAt` → fecha de creación\n\n"
+        "**Importante:** Si recién creaste la transacción, el estado es `pending`. "
+        "Esperá 5-10 segundos y volvé a ejecutar para ver el resultado."
     ),
     tags=["Transacciones"],
     responses={
-        200: {"description": "Transacción encontrada"},
-        404: {"description": "Transacción no encontrada"},
+        200: {"description": "Transacción encontrada. El estado puede ser pending, approved o rejected."},
+        404: {"description": "No existe una transacción con ese UUID. Verificá que el ID sea correcto."},
     },
 )
 def get_transaction(transaction_external_id: UUID, db: Session = Depends(get_db)):

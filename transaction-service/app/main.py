@@ -3,6 +3,7 @@ import logging
 from uuid import UUID, uuid4
 
 from fastapi import Depends, FastAPI, HTTPException
+from fastapi.openapi.docs import get_swagger_ui_html
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -21,9 +22,35 @@ from app.schemas import (
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
-    title="Transaction Service",
-    description="Servicio de procesamiento de transacciones. Crear transacciones, consultar su estado y verificar la regla antifraude.",
+    title="Transaction Service API",
+    description="""
+## Servicio de Procesamiento de Transacciones
+
+Este servicio permite crear transacciones financieras y consultar su estado.
+
+### Flujo
+1. **Crear transacción** → se guarda como `pending` en la base de datos
+2. **Anti-Fraud evalúa** → el servicio de antifraude analiza la transacción
+3. **Resultado** → la transacción cambia a `approved` (aprobada) o `rejected` (rechazada)
+
+### Regla Antifraude
+- Monto **<= 1000** → aprobada (`approved`)
+- Monto **> 1000** → rechazada (`rejected`)
+
+### Cómo usar
+1. Creá una transacción con **POST /transactions**
+2. Copiá el `transactionExternalId` de la respuesta
+3. Consultá el estado con **GET /transactions/{id}**
+4. Esperá unos segundos y consultá de nuevo para ver el resultado
+
+### Notas
+- La evaluación de fraude es **asíncrona**. Recién creada, la transacción tiene estado `pending`
+- Después de unos segundos, el estado cambia a `approved` o `rejected`
+- Si el monto es mayor a 1000, será rechazada
+    """,
     version="1.0.0",
+    docs_url="/docs",
+    redoc_url=None,
 )
 
 
@@ -46,19 +73,24 @@ def shutdown():
     response_model=TransactionCreatedResponse,
     summary="Crear una transacción",
     description=(
-        "Crea una nueva transacción con estado pending. "
-        "Se valida que las cuentas sean distintas, que transferTypeId exista "
-        "y que value sea mayor que 0. La transacción y un evento Outbox "
+        "Crea una nueva transacción con estado **pending**. "
+        "Se valida que las cuentas sean distintas, que el tipo de transferencia exista "
+        "y que el monto sea mayor que 0.\n\n"
+        "La transacción y un evento Outbox "
         "se guardan en PostgreSQL en un solo COMMIT."
     ),
     tags=["Transacciones"],
+    responses={
+        201: {"description": "Transacción creada exitosamente"},
+        422: {"description": "Datos inválidos (UUIDs iguales, monto <= 0, tipo de transferencia inexistente)"},
+    },
 )
 def create_transaction(body: TransactionCreate, db: Session = Depends(get_db)):
     # Las cuentas débito y crédito deben ser distintas.
     if body.accountExternalIdDebit == body.accountExternalIdCredit:
         raise HTTPException(
             status_code=422,
-            detail="accountExternalIdDebit y accountExternalIdCredit deben ser distintos",
+            detail="Las cuentas de origen y destino deben ser distintas",
         )
 
     # El tipo de transferencia debe existir en la tabla transfer_types.
@@ -66,7 +98,7 @@ def create_transaction(body: TransactionCreate, db: Session = Depends(get_db)):
     if not transfer_type:
         raise HTTPException(
             status_code=422,
-            detail=f"transferTypeId {body.transferTypeId} no existe",
+            detail=f"El tipo de transferencia {body.transferTypeId} no existe. Usá 1 para transferencia estándar.",
         )
 
     tx_external_id = uuid4()
@@ -113,13 +145,18 @@ def create_transaction(body: TransactionCreate, db: Session = Depends(get_db)):
     response_model=TransactionResponse,
     summary="Consultar una transacción",
     description=(
-        "Devuelve la transacción por su identificador externo (UUID). "
-        "Incluye tipo, estado actual, valor y fecha de creación. "
-        "Si la transacción recién se creó, el estado es pending. "
-        "Después de que el Anti-Fraud la evalúe, pasa a approved o rejected."
+        "Devuelve la transacción por su UUID.\n\n"
+        "Incluye:\n"
+        "- **transactionType**: tipo de transferencia\n"
+        "- **transactionStatus**: estado actual (`pending`, `approved` o `rejected`)\n"
+        "- **value**: monto\n"
+        "- **createdAt**: fecha de creación\n\n"
+        "Si la transacción recién se creó, el estado es `pending`. "
+        "Después de que Anti-Fraud la evalúe, pasa a `approved` o `rejected`."
     ),
     tags=["Transacciones"],
     responses={
+        200: {"description": "Transacción encontrada"},
         404: {"description": "Transacción no encontrada"},
     },
 )
@@ -143,8 +180,8 @@ def get_transaction(transaction_external_id: UUID, db: Session = Depends(get_db)
 
 @app.get(
     "/health",
-    summary="Health check",
-    description="Verifica que el servicio esté funcionando.",
+    summary="Verificar estado del servicio",
+    description="Endpoint de health check. Retorna `{\"status\": \"ok\"}` si el servicio está funcionando.",
     tags=["Sistema"],
 )
 def health():
